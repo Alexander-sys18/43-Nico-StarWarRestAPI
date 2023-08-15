@@ -5,6 +5,7 @@ from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User, Planeta, Personaje, Favorito 
+from sqlalchemy.exc import IntegrityError
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -63,28 +64,114 @@ def get_users():
 
 @app.route('/users/favorites', methods=['GET'])
 def get_user_favorites():
+    current_user_id = 1
+
+    user_favorites = Favorito.query.filter_by(user_id=current_user_id).all()
+
+    favorites_serialized = []
+    for favorite in user_favorites:
+        favorite_data = {
+            "id": favorite.id,
+            "user_id": favorite.user_id,
+            "planet": favorite.planeta.serialize() if favorite.planeta else None,
+            "personaje": favorite.personaje.serialize() if favorite.personaje else None
+        }
+        favorites_serialized.append(favorite_data)
+
+    return jsonify({"favorites": favorites_serialized})
+
+def get_current_user():
+
+    user = {
+        "id": 1,
+        "username": "usuario_ejemplo"
+    }
+    return user
+
+@app.route('/favorite/planet/<int:planet_id>', methods=['POST'])
+def add_favorite_planet(planet_id):
+    try:
+        current_user = get_current_user()
+
+        if current_user and "id" in current_user:
+            has_favorite = Favorito.query.filter_by(user_id=current_user["id"], planet_id=planet_id).first()
+
+            if has_favorite:
+                return jsonify({'message': 'Planet is already a favorite'}), 200
+
+            new_favorite = Favorito(user_id=current_user["id"], planet_id=planet_id)
+            db.session.add(new_favorite)
+            db.session.commit()
+
+            return jsonify({'message': 'Planet added to favorites'}), 201
+        else:
+            return jsonify({'error': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     
-    return jsonify({"favorites": []})  # Debes implementar esta lógica
+@app.route('/favorite/people/<int:people_id>', methods=['POST'])
+def add_favorite_people(people_id):
+    try:
+        current_user = get_current_user()
 
-# @app.route('/favorite/planet/<int:planet_id>', methods=['POST'])
-# def add_favorite_planet(planet_id):
-#     
-#     return jsonify({"message": "Favorite planet added"})
+        if current_user:
+            has_favorite = Favorito.query.filter_by(user_id=current_user.id, people_id=people_id).first()
 
-# @app.route('/favorite/people/<int:people_id>', methods=['POST'])
-# def add_favorite_people(people_id):
-#  
-#     return jsonify({"message": "Favorite people added"})
+            if has_favorite:
+                return jsonify({'message': 'Person is already a favorite'}), 200
 
-# @app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])
-# def remove_favorite_planet(planet_id):
-#     
-#     return jsonify({"message": "Favorite planet removed"})
+            new_favorite = Favorito(user_id=current_user.id, people_id=people_id)
+            db.session.add(new_favorite)
+            db.session.commit()
 
-# @app.route('/favorite/people/<int:people_id>', methods=['DELETE'])
-# def remove_favorite_people(people_id):
-#   
-#     return jsonify({"message": "Favorite people removed"})
+            return jsonify({'message': 'Person added to favorites'}), 201
+        else:
+            return jsonify({'error': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])
+def remove_favorite_planet(planet_id):
+    try:
+        current_user = get_current_user()
+
+        if current_user:
+            favorite = Favorito.query.filter_by(user_id=current_user['id'], planet_id=planet_id).first()
+
+            if favorite:
+                db.session.delete(favorite)
+                db.session.commit()
+                return jsonify({'message': 'Favorite planet removed'}), 200
+            else:
+                return jsonify({'message': 'Favorite planet not found'}), 404
+        else:
+            return jsonify({'error': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/favorito/people/<int:people_id>', methods=['DELETE'])
+def remove_favorite_people(people_id):
+    try:
+        current_user = get_current_user()
+
+        if current_user:
+            favorite = Favorito.query.filter_by(user_id=current_user['id'], people_id=people_id).first()
+
+            if favorite:
+                db.session.delete(favorite)
+                db.session.commit()
+                return jsonify({'message': 'Favorite people removed'}), 200
+            else:
+                return jsonify({'message': 'Favorite people not found'}), 404
+        else:
+            return jsonify({'error': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     with app.app_context():
