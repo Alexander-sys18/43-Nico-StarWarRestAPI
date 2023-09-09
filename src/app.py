@@ -93,22 +93,23 @@ def add_favorite_planet(planet_id):
     try:
         current_user = get_current_user()
 
-        if current_user and "id" in current_user:
-            has_favorite = Favorito.query.filter_by(user_id=current_user["id"], planet_id=planet_id).first()
+        if current_user and hasattr(current_user, "id"):
+            has_favorite = Favorito.query.filter_by(user_id=current_user.id, planet_id=planet_id).first()
 
             if has_favorite:
-                return jsonify({'message': 'Planet is already a favorite'}), 200
+                return jsonify({'message': 'El planeta ya es un favorito'}), 200
 
-            new_favorite = Favorito(user_id=current_user["id"], planet_id=planet_id)
+            new_favorite = Favorito(user_id=current_user.id, planet_id=planet_id)
             db.session.add(new_favorite)
             db.session.commit()
 
-            return jsonify({'message': 'Planet added to favorites'}), 201
+            return jsonify({'message': 'Planeta añadido a favoritos'}), 201
         else:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({'error': 'Usuario no encontrado'}), 404
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
     
 @app.route('/favorite/people/<int:people_id>', methods=['POST'])
 def add_favorite_people(people_id):
